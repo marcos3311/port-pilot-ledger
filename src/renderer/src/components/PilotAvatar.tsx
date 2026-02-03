@@ -28,6 +28,10 @@ export default function PilotAvatar({ pilot, size = 'md', className, showStatus 
     const getPhotoUrl = (url: string) => {
         if (!url) return null;
         if (url.startsWith('http')) return url;
+        // Check for absolute local path (Windows or Unix style) containing slash or backslash
+        if (url.includes('/') || url.includes('\\')) {
+            return `pilot-photo://preview?path=${encodeURIComponent(url)}`;
+        }
         // Using 'local' as host for better URL parsing in main process
         return `pilot-photo://local/${url}`;
     };

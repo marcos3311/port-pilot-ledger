@@ -11,7 +11,7 @@ declare global {
       createTransaction: (data: any) => Promise<{ success: boolean; id: string; numero_orden: number }>,
       deleteTransactionSimple: (id: string) => Promise<{ success: boolean }>,
       deleteTransactionShift: (id: string) => Promise<{ success: boolean }>,
-      updateTransaction: (id: string, data: any) => Promise<{ success: boolean }>,
+      updateTransaction: (data: any) => Promise<{ success: boolean }>,
       getPilotSummary: (pilotId: number, year: number) => Promise<any>,
       getAllPracticos: () => Promise<Practico[]>,
       createPractico: (data: { nombre: string; foto_url?: string | null }) => Promise<{ success: boolean; id: number }>,

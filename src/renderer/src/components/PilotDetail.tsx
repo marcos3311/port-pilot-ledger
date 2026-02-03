@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { PilotSummary } from '../../../shared/types';
+import { PilotSummary, DatosUnilateral, DatosReciproco } from '../../../shared/types';
 import { toPng } from 'html-to-image';
 
 import logo from '../assets/logo.png';
@@ -46,8 +46,8 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
             });
             setShowEditModal(false);
             fetchSummary();
-            // Notify layout if status changed
-            if (editFormData.activo !== summary.pilot.activo && onStatusChange) {
+            // Notify layout if status changed OR we just did an update (like photo)
+            if (onStatusChange) {
                 onStatusChange();
             }
         } catch (err: any) {
@@ -89,7 +89,20 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
     const negativeBalances = summary.balances.filter(b => b.balance < 0);
 
     const filteredHistorial = filterPilotId
-        ? summary.historial.filter(tx => tx.deudor_id === filterPilotId || tx.acreedor_id === filterPilotId)
+        ? summary.historial.filter(tx => {
+            if (tx.deudor_id === filterPilotId || tx.acreedor_id === filterPilotId) return true;
+
+            // Triangulation Check
+            if (tx.tipo === 'unilateral') {
+                const d = tx.datos as DatosUnilateral;
+                return d.realizado_por_id === filterPilotId;
+            }
+            if (tx.tipo === 'reciproco') {
+                const d = tx.datos as DatosReciproco;
+                return d.ida.realizado_por_id === filterPilotId || d.vuelta.realizado_por_id === filterPilotId;
+            }
+            return false;
+        })
         : summary.historial;
 
     return (
@@ -167,7 +180,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                             >
                                                 <div className="flex justify-between items-center text-sm">
                                                     <span className="text-slate-600 font-bold group-hover:text-emerald-700 transition-colors uppercase text-[11px] truncate pr-2">{b.pilotName}</span>
-                                                    <span className="text-emerald-600 font-black font-oswald text-lg">+{b.balance}</span>
+                                                    <span className="text-emerald-600 font-black font-oswald text-lg">{b.balance}</span>
                                                 </div>
                                             </button>
                                         ))}
@@ -188,7 +201,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                             >
                                                 <div className="flex justify-between items-center text-sm">
                                                     <span className="text-slate-600 font-bold group-hover:text-rose-700 transition-colors uppercase text-[11px] truncate pr-2">{b.pilotName}</span>
-                                                    <span className="text-rose-600 font-black font-oswald text-lg">-{Math.abs(b.balance)}</span>
+                                                    <span className="text-rose-600 font-black font-oswald text-lg">{Math.abs(b.balance)}</span>
                                                 </div>
                                             </button>
                                         ))}
@@ -216,7 +229,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                             <div className="bg-slate-50/50 p-6 border-b border-slate-200 flex justify-between items-center backdrop-blur-sm">
                                 <h3 className="text-sm font-bold font-oswald text-slate-600 uppercase tracking-wider flex items-center gap-2">
                                     <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Historial Detallado
+                                    Historial
                                 </h3>
                                 {filterPilotId && (
                                     <button
@@ -241,37 +254,77 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                     <tbody className="divide-y divide-slate-50 text-xs">
                                         {filteredHistorial.map(tx => {
                                             const isAcreedor = tx.acreedor_id === pilotId;
+                                            const isDeudor = tx.deudor_id === pilotId;
+                                            const isTriangulador = !isAcreedor && !isDeudor; // I am involved but not D or A => Triangulator
+
                                             return (
                                                 <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-6 py-4">
                                                         <span className="font-bold text-slate-700 font-oswald bg-slate-100 px-2 py-0.5 rounded text-[11px]">{tx.numero_orden}-{tx.anio_imputacion}</span>
                                                     </td>
                                                     <td className="px-6 py-4 font-medium text-slate-500">
-                                                        {tx.fecha_turno}
+                                                        {tx.fecha_registro}
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        {isAcreedor ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-emerald-600 font-black uppercase tracking-tighter bg-emerald-50 px-1.5 rounded-[4px] text-[10px]">ENTRA</span>
-                                                                <span className="text-slate-300">←</span>
-                                                                <span className="text-slate-600 font-bold uppercase">{tx.deudor}</span>
-                                                            </div>
-                                                        ) : tx.realizado_por_id === pilotId ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-blue-500 font-black uppercase tracking-tighter bg-blue-50 px-1.5 rounded-[4px] text-[10px]">CUBRE</span>
-                                                                <span className="text-slate-300">→</span>
-                                                                <span className="text-slate-600 font-bold uppercase">{tx.acreedor}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-rose-500 font-black uppercase tracking-tighter bg-rose-50 px-1.5 rounded-[4px] text-[10px]">SALE</span>
-                                                                <span className="text-slate-300">→</span>
-                                                                <span className="text-slate-600 font-bold uppercase">{tx.acreedor}</span>
-                                                            </div>
-                                                        )}
+                                                        <div className="flex flex-col gap-1 items-start">
+                                                            {tx.tipo === 'reciproco' ? (
+                                                                <>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-purple-600 font-bold uppercase tracking-wider text-[9px] bg-purple-50 px-1.5 rounded-[4px] border border-purple-100 mb-0.5">RECÍPROCO</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                                                        <span>Con:</span>
+                                                                        <span className="font-bold uppercase text-slate-600">
+                                                                            {isDeudor ? tx.acreedor_nombre : tx.deudor_nombre}
+                                                                        </span>
+                                                                    </div>
+                                                                </>
+                                                            ) : tx.tipo === 'condonacion' ? (
+                                                                <>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-amber-600 font-bold uppercase tracking-wider text-[9px] bg-amber-50 px-1.5 rounded-[4px] border border-amber-100 mb-0.5">CONDONACIÓN</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                                                        <span>{isDeudor ? 'Perdonado por:' : 'Perdonado a:'}</span>
+                                                                        <span className="font-bold uppercase text-slate-600">
+                                                                            {isDeudor ? tx.acreedor_nombre : tx.deudor_nombre}
+                                                                        </span>
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {isAcreedor ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-emerald-600 font-black uppercase tracking-tighter bg-emerald-50 px-1.5 rounded-[4px] text-[10px]">ENTRA</span>
+                                                                            <span className="text-slate-300">←</span>
+                                                                            <span className="text-slate-600 font-bold uppercase">{tx.deudor_nombre}</span>
+                                                                        </div>
+                                                                    ) : isTriangulador ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-blue-500 font-black uppercase tracking-tighter bg-blue-50 px-1.5 rounded-[4px] text-[10px]">CUBRE</span>
+                                                                            <span className="text-slate-300">→</span>
+                                                                            <span className="text-slate-600 font-bold uppercase">{tx.acreedor_nombre}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-rose-500 font-black uppercase tracking-tighter bg-rose-50 px-1.5 rounded-[4px] text-[10px]">SALE</span>
+                                                                            <span className="text-slate-300">→</span>
+                                                                            <span className="text-slate-600 font-bold uppercase">{tx.acreedor_nombre}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-center">
-                                                        <span className="font-black font-oswald text-slate-800 text-sm bg-slate-100 w-6 h-6 flex items-center justify-center rounded-full mx-auto">{tx.cantidad_dias}</span>
+                                                        <span className={clsx(
+                                                            "font-black font-oswald text-sm w-6 h-6 flex items-center justify-center rounded-full mx-auto",
+                                                            tx.resumen_dias === 0 ? "bg-slate-100 text-slate-400" :
+                                                                tx.resumen_dias! > 0 ? "bg-emerald-100 text-emerald-700" :
+                                                                    "bg-rose-100 text-rose-700"
+                                                        )}>
+                                                            {Math.abs(tx.resumen_dias!)}
+                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-slate-400 italic">
                                                         {tx.observacion && tx.observacion !== '' ? `"${tx.observacion}"` : <span className="text-slate-200">-</span>}
