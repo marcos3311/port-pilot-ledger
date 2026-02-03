@@ -22,7 +22,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
         window.api.getDashboardData(filterYear).then(setData);
         window.api.getPracticos().then(setPracticos);
         window.api.getAvailableYears().then(setAvailableYears);
-        console.log('Dashboard refreshing data...');
+
     };
 
 

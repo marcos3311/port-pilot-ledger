@@ -157,7 +157,7 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
-  ipcMain.on('ping', () => console.log('pong'))
+
 
   ipcMain.handle('get-pilot-summary', handleGetPilotSummary);
 

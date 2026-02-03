@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.marcos.portpilotledger
 productName: Control de Cambios
 directories:
   buildResources: build
