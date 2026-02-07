@@ -43,7 +43,7 @@ export interface IntercambioData {
     deudor_id: number;
     acreedor_id: number;
     datos_json: string; // Raw JSON from DB
-    estado: 'activo' | 'anulado';
+    estado: 'activo' | 'anulado' | 'sin_efecto';
     observacion?: string;
 }
 

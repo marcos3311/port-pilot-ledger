@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Practico, Intercambio, TipoIntercambio, DatosUnilateral, DatosReciproco, DatosCondonacion, RangoFecha } from '../../../shared/types';
 import PilotCombobox from './PilotCombobox';
 import AgileDateInput from './AgileDateInput';
 import clsx from 'clsx';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface TransactionFormModalProps {
     isOpen: boolean;
@@ -19,6 +20,8 @@ interface AgileRange {
 }
 
 export default function TransactionFormModal({ isOpen, onClose, onSuccess, initialData, practicos }: TransactionFormModalProps) {
+    const modalRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(modalRef, isOpen);
 
     // 1. Meta State
     const [anioImputacion, setAnioImputacion] = useState(new Date().getFullYear());
@@ -100,10 +103,12 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                     setVueltaRealizadoPor(d.vuelta.realizado_por_id ? d.vuelta.realizado_por_id.toString() : '');
 
                 } else if (initialData.tipo === 'condonacion') {
-                    setPilotA(initialData.acreedor_id.toString());
-                    setPilotB(initialData.deudor_id.toString());
+                    // Logic for Condonacion
                     const d = initialData.datos as DatosCondonacion;
-                    setRanges([{ start: new Date().toISOString().split('T')[0], days: d.dias }]);
+                    setPilotA(initialData.acreedor_id.toString()); // Perdonador
+                    setPilotB(initialData.deudor_id.toString());   // Perdonado
+                    // Condonation uses a single date range, usually just the day of the condonation
+                    setRanges([{ start: initialData.fecha_registro, days: d.dias }]);
                 }
             } else {
                 // Reset (Agile Defaults)
@@ -159,7 +164,7 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
     const convertAgileToBackendRanges = (agile: AgileRange[]): RangoFecha[] => {
         return agile.map(r => {
             if (!r.start) return { start: '', end: '' };
-            const dStart = new Date(r.start);
+            // const dStart = new Date(r.start); // Unused
             const dEnd = new Date(r.start);
             dEnd.setDate(dEnd.getDate() + (r.days - 1));
             return {
@@ -172,6 +177,40 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // --- CONDONATION SPECIFIC HANDLER ---
+            if (mode === 'condonacion') {
+                const range = ranges[0];
+                // Basic Validation for Condonacion
+                if (!pilotA || !pilotB) {
+                    alert('Seleccione ambos prácticos (Perdonador y Perdonado).');
+                    return;
+                }
+
+                const payload = {
+                    id: initialData?.id, // If editing
+                    tipo: 'condonacion',
+                    anio_imputacion: anioImputacion,
+                    acreedor_id: parseInt(pilotA), // Perdonador
+                    deudor_id: parseInt(pilotB),   // Perdonado
+                    fecha_turno: new Date().toISOString().split('T')[0], // Use today
+                    customOrderNumber: undefined, // No order number
+                    datos: {
+                        dias: range.days
+                    },
+                    observacion
+                };
+
+                if (initialData?.id) {
+                    await window.api.updateTransaction(payload);
+                } else {
+                    await window.api.createTransaction(payload);
+                }
+                onSuccess();
+                onClose();
+                return;
+            }
+
+            // --- STANDARD HANDLER (Unilateral / Reciproco) ---
             const totalDays = calculateTotalDays(ranges);
             const backendRanges = convertAgileToBackendRanges(ranges);
 
@@ -217,12 +256,6 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                 };
                 payload.datos = datos;
                 payload.cantidad_dias = totalDays;
-
-            } else if (mode === 'condonacion') {
-                payload.acreedor_id = pA;
-                payload.deudor_id = pB;
-                const datos: DatosCondonacion = { dias: totalDays };
-                payload.datos = datos;
             }
 
             if (initialData?.id) {
@@ -291,7 +324,7 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
     );
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div ref={modalRef} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-[90vh] flex flex-col font-inter transition-colors duration-300">
 
                 {/* Header */}
@@ -308,28 +341,43 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                 <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-8 flex-1 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
 
                     {/* 1. TOP META */}
-                    <div className="grid grid-cols-[80px_80px_1fr] gap-6 items-start">
-                        <div>
-                            <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1.5 tracking-wider transition-colors duration-300">Año</label>
-                            <input type="number" value={anioImputacion} onChange={(e) => setAnioImputacion(parseInt(e.target.value))}
-                                className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-600 focus:border-slate-800 dark:focus:border-slate-400 outline-none p-1 text-base font-bold text-center text-slate-700 dark:text-slate-200 transition-colors duration-300" />
+                    {/* 1. TOP META */}
+                    {mode !== 'condonacion' && (
+                        <div className="grid grid-cols-[80px_80px_1fr] gap-6 items-start">
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1.5 tracking-wider transition-colors duration-300">Año</label>
+                                <input type="number" value={anioImputacion} onChange={(e) => setAnioImputacion(parseInt(e.target.value))}
+                                    className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-600 focus:border-slate-800 dark:focus:border-slate-400 outline-none p-1 text-base font-bold text-center text-slate-700 dark:text-slate-200 transition-colors duration-300" />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1.5 tracking-wider transition-colors duration-300">Orden</label>
+                                <input type="number" value={numeroOrden} onChange={(e) => setNumeroOrden(e.target.value)} placeholder="Auto"
+                                    className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-600 focus:border-slate-800 dark:focus:border-slate-400 outline-none p-1 text-base font-bold text-center text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-colors duration-300" />
+                            </div>
+                            <div className="flex flex-col justify-end items-end h-full pt-4">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-1 transition-colors duration-300">Imputación</span>
+                                <span className="text-lg font-semibold text-slate-800 dark:text-slate-100 capitalize leading-none transition-colors duration-300">
+                                    {ranges[0]?.start ? new Date(ranges[0].start).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '-'}
+                                </span>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1.5 tracking-wider transition-colors duration-300">Orden</label>
-                            <input type="number" value={numeroOrden} onChange={(e) => setNumeroOrden(e.target.value)} placeholder="Auto"
-                                className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-600 focus:border-slate-800 dark:focus:border-slate-400 outline-none p-1 text-base font-bold text-center text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-colors duration-300" />
-                        </div>
-                        <div className="flex flex-col justify-end items-end h-full pt-4">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-1 transition-colors duration-300">Imputación</span>
-                            <span className="text-lg font-semibold text-slate-800 dark:text-slate-100 capitalize leading-none transition-colors duration-300">
-                                {ranges[0]?.start ? new Date(ranges[0].start).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '-'}
-                            </span>
-                        </div>
-                    </div>
+                    )}
 
                     <div className="space-y-6">
                         {/* 2. DATES (PRIMARY) */}
-                        {renderDateInputs(ranges, setRanges, 'Período del Servicio')}
+                        {mode === 'condonacion' ? (
+                            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm transition-colors duration-300">
+                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-2 transition-colors duration-300">
+                                    <label className="text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100 transition-colors duration-300">Cantidad de Días</label>
+                                </div>
+                                <div>
+                                    <input type="number" min="1" value={ranges[0].days} onChange={(e) => updateRange(setRanges, 0, 'days', parseInt(e.target.value))}
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:ring-2 focus:ring-slate-100 dark:focus:ring-slate-700 focus:border-slate-400 dark:focus:border-slate-500 outline-none text-center transition-all duration-300" required />
+                                </div>
+                            </div>
+                        ) : (
+                            renderDateInputs(ranges, setRanges, 'Período del Servicio')
+                        )}
 
                         {/* 3. PILOTS */}
                         <div className="grid grid-cols-2 gap-4">
@@ -383,6 +431,16 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                             ))}
                         </div>
                     </div>
+                    {/* CONDONACION EXPLANATION */}
+                    {mode === 'condonacion' && (
+                        <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-100 dark:border-purple-800/30">
+                            <p className="text-xs text-purple-700 dark:text-purple-300 text-center">
+                                <span className="font-bold">Condonación:</span> El <strong>Perdonador</strong> cede días al <strong>Perdonado</strong> sin esperar devolución posterior.
+                                <br />
+                                Esta acción reduce la deuda del Perdonado y el crédito del Perdonador.
+                            </p>
+                        </div>
+                    )}
 
                     {/* 5. CONTEXTUAL EXTRAS */}
 

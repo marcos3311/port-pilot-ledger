@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Practico } from '../../../shared/types';
 import clsx from 'clsx';
 import TransactionFormModal from './TransactionFormModal';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface DashboardProps {
     onNavigatePilot: (id: number) => void;
@@ -22,6 +24,10 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [selectedTx, setSelectedTx] = useState<any>(null);
     const [filterYear, setFilterYear] = useState<number | 'Todos'>('Todos');
+    const [viewMode, setViewMode] = useState<'intercambios' | 'condonaciones'>('intercambios');
+
+    const deleteModalRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(deleteModalRef, showDeleteModal);
 
     const observer = useRef<IntersectionObserver | null>(null);
     const lastTxElementRef = useCallback((node: HTMLTableRowElement | null) => {
@@ -42,7 +48,8 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
             const response = await window.api.getDashboardData({
                 year: filterYear,
                 limit: 30,
-                offset: currentOffset
+                offset: currentOffset,
+                view: viewMode
             });
 
             setTransactions(prev => reset ? response.transacciones : [...prev, ...response.transacciones]);
@@ -66,13 +73,13 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
         fetchAuxData();
     }, []);
 
-    // Reset and fetch on filter change or refresh
+    // Reset and fetch on filter change, view change or refresh
     useEffect(() => {
         setTransactions([]);
         setOffset(0);
         setHasMore(true);
         fetchTransactions(true);
-    }, [filterYear, refreshKey]);
+    }, [filterYear, viewMode, refreshKey]);
 
     // Fetch more when offset changes (but not on reset 0, which is handled by above effect)
     useEffect(() => {
@@ -107,38 +114,85 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
         fetchTransactions(true);
     };
 
+    const toggleVoid = async (id: string, currentStatus: string) => {
+        const isVoid = currentStatus === 'sin_efecto';
+        const confirmMsg = isVoid
+            ? '¿Restaurar esta transacción? (Volverá a sumar en los saldos)'
+            : '¿Marcar como Sin Efecto? (No sumará en los saldos, pero se mantiene en el historial)';
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            await window.api.setTransactionVoid(id, !isVoid);
+            // Optimistic update or refresh
+            setTransactions(prev => prev.map(t => t.id === id ? { ...t, estado: isVoid ? 'activo' : 'sin_efecto' } : t));
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
     if (initialLoad && transactions.length === 0) return <div className="flex h-full items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse transition-colors duration-300">Cargando...</div>;
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 overflow-hidden relative transition-colors duration-300">
 
             {/* White Container for Content */}
-            <div className="flex-1 bg-white dark:bg-slate-800 mt-28 mx-6 mb-6 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden relative transition-all duration-300">
+            <div className="flex-1 bg-white dark:bg-slate-800 mt-36 mx-6 mb-6 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden relative transition-all duration-300">
 
                 {/* Header Row: Invaded by the Floating Nav */}
                 <div className="px-8 mt-6 flex justify-between items-start w-full relative z-40 pointer-events-none">
 
-                    {/* Left: Year Filter */}
-                    <div className="pointer-events-auto">
-                        <div className="flex items-center gap-4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-lg shadow-sm transition-colors duration-300">
-                            <div className="flex flex-col gap-0 text-left">
-                                <label className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest leading-none mb-0.5">Año</label>
-                                <div className="relative group/select">
-                                    <select
-                                        value={filterYear}
-                                        onChange={(e) => setFilterYear(e.target.value === 'Todos' ? 'Todos' : parseInt(e.target.value))}
-                                        className="bg-transparent border-none text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-0 outline-none cursor-pointer p-0 pr-6 leading-none appearance-none transition-colors hover:text-slate-900 dark:hover:text-white"
-                                    >
-                                        <option value="Todos" className="dark:bg-slate-800">TODOS</option>
-                                        {availableYears.map(year => (
-                                            <option key={year} value={year} className="dark:bg-slate-800">{year}</option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-hover/select:text-slate-500 transition-colors">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </div>
+                    {/* Left: Integrated Control Bar (Compact Vertical) */}
+                    <div className="pointer-events-auto flex flex-col items-start bg-white dark:bg-slate-800 rounded-2xl p-2 shadow-lg border border-slate-200 dark:border-slate-700 gap-2 transition-all">
+
+                        {/* View Switcher */}
+                        <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-lg p-0.5 gap-0.5">
+                            <button
+                                onClick={() => setViewMode('intercambios')}
+                                className={clsx(
+                                    "px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-md transition-all duration-300 flex items-center gap-1.5",
+                                    viewMode === 'intercambios'
+                                        ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                )}
+                                title="Libro de Cambios"
+                            >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                                <span>LIBRO</span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('condonaciones')}
+                                className={clsx(
+                                    "px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-md transition-all duration-300 flex items-center gap-1.5",
+                                    viewMode === 'condonaciones'
+                                        ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                )}
+                                title="Condonaciones"
+                            >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>COND</span>
+                            </button>
+                        </div>
+
+                        {/* Year Filter (Compact Line) */}
+                        <div className="flex items-center gap-2 px-1 w-full border-t border-slate-100 dark:border-slate-700/50 pt-1.5">
+                            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">AÑO</span>
+                            <div className="relative group/select flex items-center flex-1">
+                                <select
+                                    value={filterYear}
+                                    onChange={(e) => setFilterYear(e.target.value === 'Todos' ? 'Todos' : parseInt(e.target.value))}
+                                    className="bg-transparent border-none text-[10px] font-bold text-slate-700 dark:text-slate-200 focus:ring-0 outline-none cursor-pointer p-0 pr-4 leading-none appearance-none transition-colors hover:text-slate-900 dark:hover:text-white w-full text-right"
+                                >
+                                    <option value="Todos" className="dark:bg-slate-800">TODO</option>
+                                    {availableYears.map(year => (
+                                        <option key={year} value={year} className="dark:bg-slate-800">{year}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-hover/select:text-slate-500 transition-colors">
+                                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                    </svg>
                                 </div>
                             </div>
                         </div>
@@ -214,9 +268,13 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                             );
                                         }
 
+                                        if (tipo === 'condonacion') {
+                                            const d = new Date(tx.fecha_registro).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+                                            return <span className="font-semibold whitespace-nowrap text-slate-600 dark:text-slate-300 text-[11px]">{d}</span>;
+                                        };
+
                                         let ranges: any[] = [];
                                         if (tipo === 'unilateral') ranges = datos?.rangos || [];
-                                        if (tipo === 'condonacion') return <span className="text-slate-400 italic text-[10px]">Sin Fechas</span>;
 
                                         if (ranges.length === 0) return <span className="text-slate-300 dark:text-slate-600">-</span>;
 
@@ -231,7 +289,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                                         </span>
                                                     );
                                                 })}
-                                                {ranges.length > 2 && <span className="text-[9px] text-slate-400">+{ranges.length - 2} más...</span>}
+                                                {ranges.length > 2 && <span className="text-[9px] text-slate-400">+{ranges.length - 2} más</span>}
                                             </div>
                                         );
                                     };
@@ -242,7 +300,11 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                         <tr
                                             key={tx.id}
                                             ref={isLastElement ? lastTxElementRef : null}
-                                            className={clsx("hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group", (tx.estado === 'anulado' || hasInactivePilot) && "bg-slate-50/50 dark:bg-slate-800/50 opacity-60 grayscale")}
+                                            className={clsx(
+                                                "hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group",
+                                                (tx.estado === 'anulado' || hasInactivePilot) && "bg-slate-50/50 dark:bg-slate-800/50 opacity-60 grayscale",
+                                                tx.estado === 'sin_efecto' && "bg-slate-50/50 dark:bg-slate-800/50 opacity-50 decoration-slate-400 line-through text-slate-400"
+                                            )}
                                         >
                                             <td className="px-6 py-4 align-top">
                                                 <div className="flex flex-col items-center gap-1">
@@ -251,7 +313,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                                         tipo === 'reciproco' ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 ring-purple-100 dark:ring-purple-800" :
                                                             tipo === 'condonacion' ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 ring-amber-100 dark:ring-amber-800" : "bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 ring-slate-200 dark:ring-slate-600"
                                                     )}>
-                                                        {tx.numero_orden}-{tx.anio_imputacion}
+                                                        {tipo === 'condonacion' ? tx.anio_imputacion : `${tx.numero_orden}-${tx.anio_imputacion}`}
                                                     </span>
                                                     <span className="text-[9px] uppercase font-bold tracking-widest text-slate-400">{tipo.slice(0, 3)}</span>
                                                 </div>
@@ -331,6 +393,15 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                                     <button onClick={() => handleEdit(tx)} className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                                     </button>
+                                                    {viewMode === 'intercambios' && (
+                                                        <button onClick={() => toggleVoid(tx.id, tx.estado)} className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={tx.estado === 'sin_efecto' ? "Restaurar" : "Sin Efecto"}>
+                                                            {tx.estado === 'sin_efecto' ? (
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                            ) : (
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                            )}
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => { setDeletingId(tx.id); setShowDeleteModal(true); }} className="text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                     </button>
@@ -371,9 +442,9 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                 practicos={practicos}
             />
 
-            {/* Modal: Smart Delete */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            {/* Modal: Smart Delete (Only for standard transactions) */}
+            {viewMode === 'intercambios' && showDeleteModal && createPortal(
+                <div ref={deleteModalRef} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 p-6 transition-colors duration-300">
                         <div className="text-center">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide mb-2">Eliminar Registro</h3>
@@ -410,7 +481,45 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Simple Delete Confirmation for Condonaciones */}
+            {viewMode === 'condonaciones' && showDeleteModal && createPortal(
+                <div ref={deleteModalRef} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide mb-2 text-center">Eliminar Condonación</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 text-center">
+                            ¿Está seguro de eliminar esta condonación?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeletingId(null);
+                                }}
+                                className="flex-1 p-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold uppercase text-xs tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (deletingId) {
+                                        await window.api.deleteTransactionSimple(deletingId, 'condonacion');
+                                        setShowDeleteModal(false);
+                                        setDeletingId(null);
+                                        fetchTransactions(true);
+                                    }
+                                }}
+                                className="flex-1 p-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold uppercase text-xs tracking-wider shadow-lg transition-colors"
+                            >
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

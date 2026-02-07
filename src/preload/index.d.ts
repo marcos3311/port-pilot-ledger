@@ -5,12 +5,13 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
-      getDashboardData: (args?: number | string | { year?: number | string; limit?: number; offset?: number }) => Promise<{ transacciones: DashboardData['transacciones']; hasMore: boolean }>,
+      getDashboardData: (args?: number | string | { year?: number | string; limit?: number; offset?: number; view?: 'intercambios' | 'condonaciones' }) => Promise<{ transacciones: DashboardData['transacciones']; hasMore: boolean }>,
       getPracticos: () => Promise<Practico[]>,
       getInactivePracticos: () => Promise<Practico[]>,
       createTransaction: (data: any) => Promise<{ success: boolean; id: string; numero_orden: number }>,
-      deleteTransactionSimple: (id: string) => Promise<{ success: boolean }>,
+      deleteTransactionSimple: (id: string, type?: 'intercambios' | 'condonacion') => Promise<{ success: boolean; freedNumber: number }>,
       deleteTransactionShift: (id: string) => Promise<{ success: boolean }>,
+      setTransactionVoid: (id: string, voided: boolean) => Promise<{ success: boolean }>,
       updateTransaction: (data: any) => Promise<{ success: boolean }>,
       getPilotSummary: (pilotId: number, year: number) => Promise<any>,
       getAllPracticos: () => Promise<Practico[]>,

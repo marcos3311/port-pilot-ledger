@@ -5,12 +5,13 @@ import { ipcRenderer } from 'electron'
 
 // Custom APIs for renderer
 const api = {
-  getDashboardData: (args?: number | string | { year?: number | string; limit?: number; offset?: number }) => ipcRenderer.invoke('get-dashboard-data', args),
+  getDashboardData: (args) => ipcRenderer.invoke('get-dashboard-data', args),
   getPracticos: () => ipcRenderer.invoke('get-practicos'),
   getInactivePracticos: () => ipcRenderer.invoke('get-inactive-practicos'),
   createTransaction: (data: any) => ipcRenderer.invoke('create-transaction', data),
-  deleteTransactionSimple: (id: string) => ipcRenderer.invoke('delete-transaction-simple', { id }),
+  deleteTransactionSimple: (id: string, type: string) => ipcRenderer.invoke('delete-transaction-simple', { id, type }),
   deleteTransactionShift: (id: string) => ipcRenderer.invoke('delete-transaction-shift', { id }),
+  setTransactionVoid: (id: string, voided: boolean) => ipcRenderer.invoke('set-transaction-void', { id, voided }),
   updateTransaction: (data: any) => ipcRenderer.invoke('update-transaction', data),
   getPilotSummary: (pilotId: number, year: number) => ipcRenderer.invoke('get-pilot-summary', { pilotId, year }),
   getAllPracticos: () => ipcRenderer.invoke('get-all-practicos'),

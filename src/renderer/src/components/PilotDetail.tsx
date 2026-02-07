@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { PilotSummary, DatosUnilateral, DatosReciproco } from '../../../shared/types';
 import { toPng } from 'html-to-image';
 
 import logo from '../assets/logo.png';
 import PilotAvatar from './PilotAvatar';
 import clsx from 'clsx';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface PilotDetailProps {
     pilotId: number;
@@ -20,6 +22,9 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
 
     // Edit Modal State
     const [showEditModal, setShowEditModal] = useState(false);
+    const editModalRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(editModalRef, showEditModal);
+
     const [editFormData, setEditFormData] = useState<{ nombre: string, foto_url: string | null, activo: number }>({
         nombre: '',
         foto_url: null,
@@ -257,11 +262,16 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                             const isTriangulador = !isAcreedor && !isDeudor; // I am involved but not D or A => Triangulator
 
                                             return (
-                                                <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                                <tr key={tx.id} className={clsx(
+                                                    "hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors",
+                                                    tx.estado === 'sin_efecto' && "opacity-50 line-through decoration-slate-400"
+                                                )}>
                                                     <td className="px-6 py-3">
-                                                        <span className="font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px] ring-1 ring-slate-200 dark:ring-slate-600">{tx.numero_orden}-{tx.anio_imputacion}</span>
+                                                        <span className="font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px] ring-1 ring-slate-200 dark:ring-slate-600 whitespace-nowrap">
+                                                            {tx.tipo === 'condonacion' ? 'COND' : `${tx.numero_orden}-${tx.anio_imputacion}`}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400 text-[10px]">
+                                                    <td className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400 text-xs">
                                                         {(() => {
                                                             const d = tx.datos as any;
                                                             if (tx.tipo === 'reciproco') {
@@ -281,7 +291,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                             <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500 w-8 mt-0.5">Ida:</span>
                                                                             <div className="flex flex-col gap-0.5">
                                                                                 {ida.map((r: any, i: number) => (
-                                                                                    <span key={i} className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
+                                                                                    <span key={i} className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-xs whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
                                                                                         {renderRange(r)}
                                                                                     </span>
                                                                                 ))}
@@ -291,7 +301,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                             <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500 w-8 mt-0.5">Vta:</span>
                                                                             <div className="flex flex-col gap-0.5">
                                                                                 {vuelta.map((r: any, i: number) => (
-                                                                                    <span key={i} className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
+                                                                                    <span key={i} className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-xs whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
                                                                                         {renderRange(r)}
                                                                                     </span>
                                                                                 ))}
@@ -299,10 +309,19 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                         </div>
                                                                     </div>
                                                                 );
+                                                            } else if (tx.tipo === 'condonacion') {
+                                                                const dateOpts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' };
+                                                                // Use fecha_registro as the date
+                                                                const date = new Date(tx.fecha_registro).toLocaleDateString('es-ES', dateOpts);
+                                                                return (
+                                                                    <span className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-xs whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
+                                                                        {date}
+                                                                    </span>
+                                                                );
                                                             } else {
-                                                                // Unilateral / Condonacion
+                                                                // Unilateral
                                                                 const rangos = d.rangos || [];
-                                                                if (rangos.length === 0) return <span className="text-slate-400 dark:text-slate-600 text-[10px]">-</span>;
+                                                                if (rangos.length === 0) return <span className="text-slate-400 dark:text-slate-600 text-xs">-</span>;
 
                                                                 return (
                                                                     <div className="flex flex-col gap-1 items-start">
@@ -311,7 +330,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                             const d1 = new Date(r.start).toLocaleDateString('es-ES', dateOpts);
                                                                             const d2 = r.end ? new Date(r.end).toLocaleDateString('es-ES', dateOpts) : d1;
                                                                             return (
-                                                                                <span key={i} className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
+                                                                                <span key={i} className="bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-xs whitespace-nowrap border border-slate-200 dark:border-slate-600 font-mono">
                                                                                     {d1 === d2 ? d1 : `${d1} - ${d2}`}
                                                                                 </span>
                                                                             );
@@ -328,7 +347,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                     <div className="flex items-center gap-2">
                                                                         <span className="text-purple-700 dark:text-purple-300 font-bold uppercase tracking-wider text-[9px] bg-purple-50 dark:bg-purple-900/20 px-1.5 rounded-[4px] ring-1 ring-purple-100 dark:ring-purple-800 mb-0.5">RECÍPROCO</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                                                                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                                                                         <span>Con:</span>
                                                                         <span className="font-bold uppercase text-slate-700 dark:text-slate-200">
                                                                             {isDeudor ? tx.acreedor_nombre : tx.deudor_nombre}
@@ -340,7 +359,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                     <div className="flex items-center gap-2">
                                                                         <span className="text-amber-700 dark:text-amber-300 font-bold uppercase tracking-wider text-[9px] bg-amber-50 dark:bg-amber-900/20 px-1.5 rounded-[4px] ring-1 ring-amber-100 dark:ring-amber-800 mb-0.5">CONDONACIÓN</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                                                                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                                                                         <span>{isDeudor ? 'Perdonado por:' : 'Perdonado a:'}</span>
                                                                         <span className="font-bold uppercase text-slate-700 dark:text-slate-200">
                                                                             {isDeudor ? tx.acreedor_nombre : tx.deudor_nombre}
@@ -353,19 +372,19 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="text-emerald-700 dark:text-emerald-400 font-black uppercase tracking-tighter bg-emerald-50 dark:bg-emerald-900/20 px-1.5 rounded-[4px] text-[10px] ring-1 ring-emerald-100 dark:ring-emerald-800">ENTRA</span>
                                                                             <span className="text-slate-300 dark:text-slate-600">←</span>
-                                                                            <span className="text-slate-700 dark:text-slate-200 font-bold uppercase text-[11px]">{tx.deudor_nombre}</span>
+                                                                            <span className="text-slate-700 dark:text-slate-200 font-bold uppercase text-[13px]">{tx.deudor_nombre}</span>
                                                                         </div>
                                                                     ) : isTriangulador ? (
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="text-blue-600 dark:text-blue-400 font-black uppercase tracking-tighter bg-blue-50 dark:bg-blue-900/20 px-1.5 rounded-[4px] text-[10px] ring-1 ring-blue-100 dark:ring-blue-800">CUBRE</span>
                                                                             <span className="text-slate-300 dark:text-slate-600">→</span>
-                                                                            <span className="text-slate-700 dark:text-slate-200 font-bold uppercase text-[11px]">{tx.acreedor_nombre}</span>
+                                                                            <span className="text-slate-700 dark:text-slate-200 font-bold uppercase text-[13px]">{tx.acreedor_nombre}</span>
                                                                         </div>
                                                                     ) : (
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="text-rose-600 dark:text-rose-400 font-black uppercase tracking-tighter bg-rose-50 dark:bg-rose-900/20 px-1.5 rounded-[4px] text-[10px] ring-1 ring-rose-100 dark:ring-rose-800">SALE</span>
                                                                             <span className="text-slate-300 dark:text-slate-600">→</span>
-                                                                            <span className="text-slate-700 dark:text-slate-200 font-bold uppercase text-[11px]">{tx.acreedor_nombre}</span>
+                                                                            <span className="text-slate-700 dark:text-slate-200 font-bold uppercase text-[13px]">{tx.acreedor_nombre}</span>
                                                                         </div>
                                                                     )}
                                                                 </>
@@ -406,9 +425,9 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                     </div>
                 </div>
                 {/* Edit Modal */}
-                {showEditModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 pointer-events-auto">
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 transition-colors duration-300">
+                {showEditModal && createPortal(
+                    <div ref={editModalRef} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto transition-all duration-300">
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 transition-colors duration-300 scale-100 opacity-100">
                             <div className="bg-slate-50 dark:bg-slate-700/50 p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center transition-colors duration-300">
                                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Editar Práctico</h3>
                                 <button onClick={() => setShowEditModal(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
@@ -425,62 +444,58 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                             size="xl"
                                             className="ring-4 ring-slate-100 dark:ring-slate-700"
                                         />
-                                        <div className="absolute inset-0 bg-slate-900/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <svg className="w-8 h-8 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                         </div>
                                     </div>
-                                    <button onClick={handlePhotoSelect} className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 uppercase tracking-wide transition-colors">
-                                        Cambiar Foto
-                                    </button>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Cambiar Foto</span>
                                 </div>
 
-                                {/* Name Display (Read Only) */}
-                                <div className="w-full text-center">
-                                    <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100 transition-colors">{editFormData.nombre}</h4>
-                                    <p className="text-slate-400 dark:text-slate-500 text-[10px] uppercase tracking-wider font-bold mt-1">Nombre del Práctico</p>
+                                {/* Name Input */}
+                                <div className="w-full">
+                                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Nombre Completo</label>
+                                    <input
+                                        type="text"
+                                        value={editFormData.nombre}
+                                        onChange={e => setEditFormData({ ...editFormData, nombre: e.target.value })}
+                                        className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl p-3.5 text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:border-slate-400 dark:focus:border-slate-500 outline-none transition-all shadow-sm"
+                                    />
                                 </div>
 
-                                {/* Status Section */}
-                                <div className="w-full bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4 border border-slate-100 dark:border-slate-700 flex items-center justify-between transition-colors">
+                                {/* Status Toggle */}
+                                <div className="w-full flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Estado Actual</span>
-                                        <span className={clsx(
-                                            "text-xs font-bold mt-1",
-                                            editFormData.activo === 1 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                                        )}>
-                                            {editFormData.activo === 1 ? 'ACTIVO' : 'INACTIVO (BAJA)'}
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Estado del Práctico</span>
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                                            {editFormData.activo ? 'Activo y Disponible' : 'Retirado / Inactivo'}
                                         </span>
                                     </div>
                                     <button
-                                        onClick={() => setEditFormData(prev => ({ ...prev, activo: prev.activo === 1 ? 0 : 1 }))}
+                                        onClick={() => setEditFormData({ ...editFormData, activo: editFormData.activo ? 0 : 1 })}
                                         className={clsx(
-                                            "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-colors border shadow-sm",
-                                            editFormData.activo === 1
-                                                ? "bg-white dark:bg-slate-800 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:border-rose-300"
-                                                : "bg-white dark:bg-slate-800 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-300"
+                                            "relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-800",
+                                            editFormData.activo ? "bg-emerald-500 ring-emerald-200 dark:ring-emerald-900" : "bg-slate-300 dark:bg-slate-600 ring-slate-200 dark:ring-slate-700"
                                         )}
                                     >
-                                        {editFormData.activo === 1 ? 'Dar de Baja' : 'Reactivar'}
+                                        <span
+                                            className={clsx(
+                                                "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300",
+                                                editFormData.activo ? "translate-x-6" : "translate-x-0"
+                                            )}
+                                        />
                                     </button>
                                 </div>
-                            </div>
 
-                            <div className="bg-slate-50 dark:bg-slate-700/50 p-4 flex justify-end gap-3 border-t border-slate-200 dark:border-slate-700 transition-colors">
-                                <button
-                                    onClick={() => setShowEditModal(false)}
-                                    className="px-4 py-2 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs tracking-wide hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
                                 <button
                                     onClick={handleSaveEdit}
-                                    className="px-6 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg font-bold uppercase text-xs tracking-wide hover:bg-slate-800 dark:hover:bg-slate-200 shadow-lg shadow-slate-900/10 transition-colors"
+                                    className="w-full bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 p-3.5 rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-slate-900/10 dark:shadow-slate-100/10 transition-all hover:scale-[1.02] active:scale-[0.98] mt-2"
                                 >
                                     Guardar Cambios
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
             </div>
         </div>

@@ -9,7 +9,8 @@ import {
   handleGetPilotSummary,
   handleGetDashboardData,
   handleCreateTransaction,
-  handleUpdateTransaction
+  handleUpdateTransaction,
+  handleSetTransactionVoid
 } from './handlers';
 
 
@@ -127,24 +128,59 @@ app.whenReady().then(() => {
   // but they rely on ID which is still there. However, 'cantidad_dias' is gone from root.
   // We should probably check delete logic.
   ipcMain.handle('delete-transaction-shift', (_, { id }) => {
+    console.log('[DELETE-SHIFT] Request for ID:', id);
     // Need to check if logic holds: "numero_orden" exists. Yes. "anio_imputacion" exists. Yes.
     // Shift strategy depends on numero_orden. This remains valid.
     const tx = db.prepare('SELECT anio_imputacion, numero_orden FROM intercambios WHERE id = ?').get(id) as { anio_imputacion: number, numero_orden: number };
-    if (!tx) return { success: false };
-    const deleteAndShift = db.transaction(() => {
-      db.prepare('DELETE FROM intercambios WHERE id = ?').run(id);
-      db.prepare(`
-        UPDATE intercambios 
-        SET numero_orden = numero_orden - 1 
-        WHERE anio_imputacion = ? AND numero_orden > ?
-      `).run(tx.anio_imputacion, tx.numero_orden);
-    });
-    deleteAndShift();
-    return { success: true };
+
+    if (!tx) {
+      console.error('[DELETE-SHIFT] Transaction not found:', id);
+      return { success: false };
+    }
+
+    console.log('[DELETE-SHIFT] Found tx:', tx);
+
+    try {
+      const deleteAndShift = db.transaction(() => {
+        console.log('[DELETE-SHIFT] Deleting...');
+        db.prepare('DELETE FROM intercambios WHERE id = ?').run(id);
+
+        console.log('[DELETE-SHIFT] Shifting orders >', tx.numero_orden, 'for year', tx.anio_imputacion);
+
+        // Fetch affected rows in ASC order (lowest first) to shift them down safely
+        // e.g. 1 2 [3] 4 5  -> Delete 3 -> update 4->3, then 5->4
+        type TxRow = { id: string, numero_orden: number };
+        const toUpdate = db.prepare(`
+            SELECT id, numero_orden 
+            FROM intercambios 
+            WHERE anio_imputacion = ? AND numero_orden > ?
+            ORDER BY numero_orden ASC
+        `).all(tx.anio_imputacion, tx.numero_orden) as TxRow[];
+
+        const updateStmt = db.prepare('UPDATE intercambios SET numero_orden = ? WHERE id = ?');
+
+        for (const row of toUpdate) {
+          // Determine new order number
+          const newOrder = row.numero_orden - 1;
+          console.log(`[DELETE-SHIFT] Updating ID ${row.id} order ${row.numero_orden} -> ${newOrder}`);
+          updateStmt.run(newOrder, row.id);
+        }
+      });
+      deleteAndShift();
+      console.log('[DELETE-SHIFT] Success');
+      return { success: true };
+    } catch (error) {
+      console.error('[DELETE-SHIFT] Error:', error);
+      throw error;
+    }
   });
 
-  ipcMain.handle('delete-transaction-simple', (_, { id }) => {
-    db.prepare('DELETE FROM intercambios WHERE id = ?').run(id);
+  ipcMain.handle('delete-transaction-simple', (_, { id, type }: { id: string; type?: string }) => {
+    if (type === 'condonacion') {
+      db.prepare('DELETE FROM condonaciones WHERE id = ?').run(id);
+    } else {
+      db.prepare('DELETE FROM intercambios WHERE id = ?').run(id);
+    }
     return { success: true };
   });
 
@@ -152,6 +188,8 @@ app.whenReady().then(() => {
   // For now, let's just fail or todo since UI won't call old update.
   // Expect V2 Update to be implemented if needed.
   ipcMain.handle('update-transaction', handleUpdateTransaction);
+
+  ipcMain.handle('set-transaction-void', handleSetTransactionVoid);
 
   electronApp.setAppUserModelId('com.electron')
   app.on('browser-window-created', (_, window) => {

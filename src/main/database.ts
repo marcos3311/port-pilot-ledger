@@ -47,11 +47,70 @@ export function initDatabase(): void {
     }
   }
 
+  // V2.1: Condonaciones Table
   db.exec(`
+    CREATE TABLE IF NOT EXISTS condonaciones (
+      id TEXT PRIMARY KEY,
+      fecha TEXT NOT NULL,
+      acreedor_id INTEGER NOT NULL,
+      deudor_id INTEGER NOT NULL,
+      cantidad_dias INTEGER NOT NULL,
+      observacion TEXT,
+      FOREIGN KEY(acreedor_id) REFERENCES practicos(id),
+      FOREIGN KEY(deudor_id) REFERENCES practicos(id)
+    );
+  `);
 
-  --V2: Schema ensures table exists
-  --DROP TABLE IF EXISTS intercambios; (REMOVED FOR PERSISTENCE)
+  // --- V2 -> V2.1 MIGRATION CHECK (Estado Enum Update) ---
+  // Check if 'intercambios' has the new check constraint for 'sin_efecto'
+  // SQLite doesn't easily show CHECK constraints in pragma, so we try to check table sql or just rely on a marker.
+  // We'll trust the 'active' check relies on the table creation.
+  // To update the CHECK constraint, we MUST recreate the table.
 
+  const tableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='intercambios'").get() as { sql: string };
+  const hasSinEfecto = tableSql && tableSql.sql.includes('sin_efecto');
+
+  if (tableSql && !hasSinEfecto) {
+    console.warn('[Migration] Detected V2.0 schema (missing "sin_efecto"). Migrating table...');
+
+    db.transaction(() => {
+      // 1. Rename old
+      db.prepare("ALTER TABLE intercambios RENAME TO intercambios_old").run();
+
+      // 2. Create new (with updated CHECK)
+      db.exec(`
+            CREATE TABLE IF NOT EXISTS intercambios(
+            id TEXT PRIMARY KEY,
+            anio_imputacion INTEGER NOT NULL,
+            numero_orden INTEGER NOT NULL CHECK(numero_orden >= 1),
+            fecha_registro TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK(tipo IN('unilateral', 'reciproco', 'condonacion')),
+            deudor_id INTEGER NOT NULL,
+            acreedor_id INTEGER NOT NULL,
+            datos_json TEXT NOT NULL,
+            estado TEXT CHECK(estado IN('activo', 'anulado', 'sin_efecto')) DEFAULT 'activo',
+            observacion TEXT,
+            FOREIGN KEY(deudor_id) REFERENCES practicos(id),
+            FOREIGN KEY(acreedor_id) REFERENCES practicos(id)
+          );
+          
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_orden_anio ON intercambios(anio_imputacion, numero_orden);
+          `);
+
+      // 3. Copy data
+      db.exec(`
+            INSERT INTO intercambios (id, anio_imputacion, numero_orden, fecha_registro, tipo, deudor_id, acreedor_id, datos_json, estado, observacion)
+            SELECT id, anio_imputacion, numero_orden, fecha_registro, tipo, deudor_id, acreedor_id, datos_json, estado, observacion FROM intercambios_old;
+          `);
+
+      // 4. Drop old
+      db.prepare("DROP TABLE intercambios_old").run();
+    })();
+    console.log('[Migration] Database migration to V2.1 completed.');
+  }
+
+  // Ensure table exists anyway if fresh install
+  db.exec(`
     CREATE TABLE IF NOT EXISTS intercambios(
     id TEXT PRIMARY KEY,
     anio_imputacion INTEGER NOT NULL,
@@ -61,7 +120,7 @@ export function initDatabase(): void {
     deudor_id INTEGER NOT NULL,
     acreedor_id INTEGER NOT NULL,
     datos_json TEXT NOT NULL,
-    estado TEXT CHECK(estado IN('activo', 'anulado')) DEFAULT 'activo',
+    estado TEXT CHECK(estado IN('activo', 'anulado', 'sin_efecto')) DEFAULT 'activo',
     observacion TEXT,
     FOREIGN KEY(deudor_id) REFERENCES practicos(id),
     FOREIGN KEY(acreedor_id) REFERENCES practicos(id)

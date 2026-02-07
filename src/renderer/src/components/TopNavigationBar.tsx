@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Practico } from '../../../shared/types';
 import PilotAvatar from './PilotAvatar';
 import clsx from 'clsx';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface TopNavigationBarProps {
     onPilotClick: (id: number) => void;
@@ -20,6 +21,13 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
     const [newPilotFoto, setNewPilotFoto] = useState('');
     const [isHovered, setIsHovered] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Modals Refs & Focus Trap
+    const createModalRef = useRef<HTMLFormElement>(null);
+    useFocusTrap(createModalRef, showModal);
+
+    const retiredModalRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(retiredModalRef, showRetiredModal);
 
     const fetchPracticos = () => {
         window.api.getPracticos().then(data => {
@@ -165,7 +173,7 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
             {/* Create Pilot Modal */}
             {showModal && createPortal(
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-lg z-[100] flex items-center justify-center p-4 pointer-events-auto transition-all duration-300">
-                    <form onSubmit={handleCreate} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col transition-colors duration-300">
+                    <form ref={createModalRef} onSubmit={handleCreate} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col transition-colors duration-300">
                         {/* Header */}
                         <div className="bg-white dark:bg-slate-800 p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center z-10 relative">
                             <h3 className="text-lg font-black font-sans text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Nuevo Práctico</h3>
@@ -248,7 +256,7 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
             {/* Retired Pilots Modal */}
             {showRetiredModal && createPortal(
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-lg z-[100] flex items-center justify-center p-4 pointer-events-auto transition-all duration-300">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col transition-colors duration-300">
+                    <div ref={retiredModalRef} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col transition-colors duration-300">
                         {/* Header */}
                         <div className="bg-white dark:bg-slate-800 p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center z-10 relative">
                             <h3 className="text-lg font-black font-sans text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Prácticos Retirados</h3>
