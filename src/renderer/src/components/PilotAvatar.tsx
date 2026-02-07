@@ -48,9 +48,9 @@ export default function PilotAvatar({ pilot, size = 'md', className, showStatus 
     return (
         <div className={clsx("relative inline-block", className)}>
             <div className={clsx(
-                "rounded-full flex items-center justify-center font-bold overflow-hidden border border-slate-200 shadow-sm transition-all",
+                "rounded-full flex items-center justify-center font-bold overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-300",
                 sizeClasses[size],
-                !pilot.foto_url || imgError ? "bg-white text-slate-800 border-2 border-slate-100" : "bg-slate-50"
+                !pilot.foto_url || imgError ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-2 border-slate-100 dark:border-slate-700" : "bg-slate-50 dark:bg-slate-700"
             )}>
                 {pilot.foto_url && !imgError ? (
                     <img
@@ -65,7 +65,7 @@ export default function PilotAvatar({ pilot, size = 'md', className, showStatus 
             </div>
             {showStatus && (
                 <span className={clsx(
-                    "absolute bottom-0 right-0 block w-3.5 h-3.5 rounded-full ring-2 ring-white border border-white shadow-sm",
+                    "absolute bottom-0 right-0 block w-3.5 h-3.5 rounded-full ring-2 ring-white dark:ring-slate-900 border border-white dark:border-slate-900 shadow-sm transition-all duration-300",
                     isActive ? "bg-emerald-500" : "bg-rose-500"
                 )} />
             )}

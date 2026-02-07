@@ -140,17 +140,17 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
     }, [activeIndex, isOpen]);
 
     const themeStyles = {
-        slate: 'border-slate-200 focus:border-slate-400 focus:ring-slate-100',
-        emerald: 'border-slate-200 border-l-4 border-l-emerald-500 focus:border-emerald-300 focus:ring-emerald-50', // Matte Green Accent
-        rose: 'border-slate-200 border-l-4 border-l-rose-500 focus:border-rose-300 focus:ring-rose-50',       // Matte Red Accent
-        purple: 'border-slate-200 border-l-4 border-l-purple-500 focus:border-purple-300 focus:ring-purple-50', // Matte Purple Accent
-        amber: 'border-slate-200 border-l-4 border-l-amber-500 focus:border-amber-300 focus:ring-amber-50',    // Matte Amber Accent
-        blue: 'border-slate-200 border-l-4 border-l-blue-500 focus:border-blue-300 focus:ring-blue-50'
+        slate: 'border-slate-200 dark:border-slate-700 focus:border-slate-400 dark:focus:border-slate-500 focus:ring-slate-100 dark:focus:ring-slate-800',
+        emerald: 'border-slate-200 dark:border-slate-700 border-l-4 border-l-emerald-500 dark:border-l-emerald-500 focus:border-emerald-300 dark:focus:border-emerald-600 focus:ring-emerald-50 dark:focus:ring-emerald-900/20',
+        rose: 'border-slate-200 dark:border-slate-700 border-l-4 border-l-rose-500 dark:border-l-rose-500 focus:border-rose-300 dark:focus:border-rose-600 focus:ring-rose-50 dark:focus:ring-rose-900/20',
+        purple: 'border-slate-200 dark:border-slate-700 border-l-4 border-l-purple-500 dark:border-l-purple-500 focus:border-purple-300 dark:focus:border-purple-600 focus:ring-purple-50 dark:focus:ring-purple-900/20',
+        amber: 'border-slate-200 dark:border-slate-700 border-l-4 border-l-amber-500 dark:border-l-amber-500 focus:border-amber-300 dark:focus:border-amber-600 focus:ring-amber-50 dark:focus:ring-amber-900/20',
+        blue: 'border-slate-200 dark:border-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-500 focus:border-blue-300 dark:focus:border-blue-600 focus:ring-blue-50 dark:focus:ring-blue-900/20'
     };
 
     return (
         <div ref={wrapperRef} className={clsx("relative", className)} onBlur={handleBlur}>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 tracking-wider truncate">{label}</label>
+            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5 tracking-wider truncate transition-colors duration-300">{label}</label>
 
             <div className="relative group">
                 <div className="relative">
@@ -180,8 +180,8 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
                             inputRef.current?.select();
                         }}
                         className={clsx(
-                            "w-full rounded bg-white p-2.5 text-sm font-semibold text-slate-700 outline-none shadow-sm transition-all focus:ring-2",
-                            "placeholder:text-slate-300 placeholder:font-normal",
+                            "w-full rounded bg-white dark:bg-slate-900 p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none shadow-sm transition-all focus:ring-2 duration-300",
+                            "placeholder:text-slate-300 dark:placeholder:text-slate-600 placeholder:font-normal",
                             themeStyles[theme],
                             selectedPilot ? "pl-11" : "pl-3" // Adjust padding
                         )}
@@ -189,16 +189,16 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
                         autoComplete="off"
                     />
 
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-hover:text-slate-500 transition-colors">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors duration-300">
                         <svg className={clsx("w-4 h-4 transition-transform", isOpen && "rotate-180")} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
                 </div>
 
                 {/* Dropdown */}
                 {isOpen && (
-                    <div ref={listRef} className="absolute w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 custom-scrollbar ring-1 ring-slate-100">
+                    <div ref={listRef} className="absolute w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 custom-scrollbar ring-1 ring-slate-100 dark:ring-slate-700 transition-colors duration-300">
                         {filteredPracticos.length === 0 ? (
-                            <div className="p-3 text-xs text-slate-400 text-center italic">No hay resultados</div>
+                            <div className="p-3 text-xs text-slate-400 dark:text-slate-500 text-center italic">No hay resultados</div>
                         ) : (
                             filteredPracticos.map((p, index) => (
                                 <div
@@ -209,16 +209,16 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
                                     }}
                                     onMouseEnter={() => setActiveIndex(index)}
                                     className={clsx(
-                                        "w-full flex items-center gap-3 p-2 cursor-pointer transition-colors border-b border-slate-50 last:border-0",
-                                        index === activeIndex ? "bg-slate-50" : "hover:bg-slate-50"
+                                        "w-full flex items-center gap-3 p-2 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-700/50 last:border-0",
+                                        index === activeIndex ? "bg-slate-50 dark:bg-slate-700/50" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
                                     )}
                                 >
                                     <div className="scale-75 origin-left">
                                         <PilotAvatar pilot={p} size="sm" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700">{p.nombre}</span>
-                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{p.id}</span>
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{p.nombre}</span>
+                                        <span className="text-[9px] font-bold text-slate-300 dark:text-slate-500 uppercase tracking-widest">{p.id}</span>
                                     </div>
                                 </div>
                             ))
