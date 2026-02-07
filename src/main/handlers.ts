@@ -152,7 +152,19 @@ export const handleGetPilotSummary = (_: IpcMainInvokeEvent, { pilotId }: { pilo
     return { pilot, balances, historial: filteredHistorial };
 };
 
-export const handleGetDashboardData = (_: IpcMainInvokeEvent, year?: number | string) => {
+export const handleGetDashboardData = (_: IpcMainInvokeEvent, payload?: any) => {
+    let year: number | string | undefined;
+    let limit = 50;
+    let offset = 0;
+
+    if (typeof payload === 'object' && payload !== null) {
+        year = payload.year;
+        if (typeof payload.limit === 'number') limit = payload.limit;
+        if (typeof payload.offset === 'number') offset = payload.offset;
+    } else {
+        year = payload;
+    }
+
     let sql = `SELECT * FROM intercambios`;
     const params: any[] = [];
 
@@ -161,7 +173,8 @@ export const handleGetDashboardData = (_: IpcMainInvokeEvent, year?: number | st
         params.push(year);
     }
 
-    sql += ` ORDER BY anio_imputacion DESC, numero_orden DESC`;
+    sql += ` ORDER BY anio_imputacion DESC, numero_orden DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
 
     const rawTxs = db.prepare(sql).all(...params) as IntercambioData[];
 
@@ -183,7 +196,7 @@ export const handleGetDashboardData = (_: IpcMainInvokeEvent, year?: number | st
         };
     });
 
-    return { transacciones };
+    return { transacciones, hasMore: transacciones.length === limit };
 };
 
 export const handleCreateTransaction = (_: IpcMainInvokeEvent, payload: any) => {

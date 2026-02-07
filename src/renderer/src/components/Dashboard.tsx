@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { DashboardData, Practico } from '../../../shared/types';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Practico } from '../../../shared/types';
 import clsx from 'clsx';
 import TransactionFormModal from './TransactionFormModal';
 
@@ -9,7 +9,12 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProps) {
-    const [data, setData] = useState<DashboardData | null>(null);
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [hasMore, setHasMore] = useState(true);
+    const [offset, setOffset] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(true);
+
     const [practicos, setPracticos] = useState<Practico[]>([]);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
     const [showModal, setShowModal] = useState(false);
@@ -18,17 +23,63 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
     const [selectedTx, setSelectedTx] = useState<any>(null);
     const [filterYear, setFilterYear] = useState<number | 'Todos'>('Todos');
 
-    const fetchData = () => {
-        window.api.getDashboardData(filterYear).then(setData);
-        window.api.getPracticos().then(data => setPracticos(data.sort((a, b) => a.id - b.id)));
-        window.api.getAvailableYears().then(setAvailableYears);
+    const observer = useRef<IntersectionObserver | null>(null);
+    const lastTxElementRef = useCallback((node: HTMLTableRowElement | null) => {
+        if (isLoading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setOffset(prevOffset => prevOffset + 30);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [isLoading, hasMore]);
 
+    const fetchTransactions = async (reset = false) => {
+        setIsLoading(true);
+        try {
+            const currentOffset = reset ? 0 : offset;
+            const response = await window.api.getDashboardData({
+                year: filterYear,
+                limit: 30,
+                offset: currentOffset
+            });
+
+            setTransactions(prev => reset ? response.transacciones : [...prev, ...response.transacciones]);
+            setHasMore(response.hasMore);
+            if (reset) setOffset(0);
+        } catch (error) {
+            console.error("Failed to fetch transactions:", error);
+        } finally {
+            setIsLoading(false);
+            setInitialLoad(false);
+        }
     };
 
+    const fetchAuxData = () => {
+        window.api.getPracticos().then(data => setPracticos(data.sort((a, b) => a.id - b.id)));
+        window.api.getAvailableYears().then(setAvailableYears);
+    };
 
+    // Initial load for aux data
     useEffect(() => {
-        fetchData();
+        fetchAuxData();
+    }, []);
+
+    // Reset and fetch on filter change or refresh
+    useEffect(() => {
+        setTransactions([]);
+        setOffset(0);
+        setHasMore(true);
+        fetchTransactions(true);
     }, [filterYear, refreshKey]);
+
+    // Fetch more when offset changes (but not on reset 0, which is handled by above effect)
+    useEffect(() => {
+        if (offset > 0) {
+            fetchTransactions(false);
+        }
+    }, [offset]);
 
     const handleCreateNew = () => {
         setSelectedTx(null);
@@ -45,7 +96,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
         await window.api.deleteTransactionSimple(deletingId);
         setShowDeleteModal(false);
         setDeletingId(null);
-        fetchData();
+        fetchTransactions(true);
     };
 
     const confirmDeleteShift = async () => {
@@ -53,10 +104,10 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
         await window.api.deleteTransactionShift(deletingId);
         setShowDeleteModal(false);
         setDeletingId(null);
-        fetchData();
+        fetchTransactions(true);
     };
 
-    if (!data) return <div className="flex h-full items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse transition-colors duration-300">Cargando...</div>;
+    if (initialLoad && transactions.length === 0) return <div className="flex h-full items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse transition-colors duration-300">Cargando...</div>;
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 overflow-hidden relative transition-colors duration-300">
@@ -123,7 +174,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-sm transition-colors duration-300">
-                                {data.transacciones.map((tx: any) => {
+                                {transactions.map((tx: any, index: number) => {
                                     const tipo = tx.tipo;
                                     const datos = tx.datos;
                                     const hasInactivePilot =
@@ -185,8 +236,14 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                         );
                                     };
 
+                                    const isLastElement = index === transactions.length - 1;
+
                                     return (
-                                        <tr key={tx.id} className={clsx("hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group", (tx.estado === 'anulado' || hasInactivePilot) && "bg-slate-50/50 dark:bg-slate-800/50 opacity-60 grayscale")}>
+                                        <tr
+                                            key={tx.id}
+                                            ref={isLastElement ? lastTxElementRef : null}
+                                            className={clsx("hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group", (tx.estado === 'anulado' || hasInactivePilot) && "bg-slate-50/50 dark:bg-slate-800/50 opacity-60 grayscale")}
+                                        >
                                             <td className="px-6 py-4 align-top">
                                                 <div className="flex flex-col items-center gap-1">
                                                     <span className={clsx(
@@ -284,9 +341,16 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                                 })}
                             </tbody>
                         </table>
-                        {data.transacciones.length === 0 && (
+                        {transactions.length === 0 && !isLoading && (
                             <div className="py-24 text-center">
                                 <p className="text-slate-300 dark:text-slate-600 uppercase tracking-widest text-[10px] font-bold">No hay registros para este período</p>
+                            </div>
+                        )}
+                        {isLoading && transactions.length > 0 && (
+                            <div className="py-8 text-center bg-slate-50/50 dark:bg-slate-800/50">
+                                <span className="inline-block w-2 h-2 rounded-full bg-slate-400 animate-bounce delay-0 mr-1"></span>
+                                <span className="inline-block w-2 h-2 rounded-full bg-slate-400 animate-bounce delay-150 mr-1"></span>
+                                <span className="inline-block w-2 h-2 rounded-full bg-slate-400 animate-bounce delay-300"></span>
                             </div>
                         )}
                     </div>
@@ -301,7 +365,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                 }}
                 onSuccess={() => {
                     setShowModal(false);
-                    fetchData();
+                    fetchTransactions(true);
                 }}
                 initialData={selectedTx}
                 practicos={practicos}

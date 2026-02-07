@@ -40,9 +40,9 @@ export default function Layout() {
                 {/* Logo (Left) */}
                 <button
                     onClick={() => setSelectedPilotId(null)}
-                    className="pointer-events-auto transition-transform hover:scale-105 active:scale-95 opacity-80 hover:opacity-100"
+                    className="pointer-events-auto transition-transform active:scale-97"
                 >
-                    <img src={logo} alt="Logo" className="h-16 w-auto drop-shadow-sm filter grayscale hover:grayscale-0 transition-all duration-500" />
+                    <img src={logo} alt="Logo" className="h-16 w-auto drop-shadow-sm filter" />
                 </button>
 
                 {/* Title (Center) */}
@@ -69,7 +69,7 @@ export default function Layout() {
             </div>
 
             {/* New Top Navigation (Floating) */}
-            <div className="absolute top-28 left-0 w-full z-50 pointer-events-none">
+            <div className="absolute top-24 left-0 w-full z-50 pointer-events-none">
                 <TopNavigationBar
                     onPilotClick={setSelectedPilotId}
                     currentPilotId={selectedPilotId}

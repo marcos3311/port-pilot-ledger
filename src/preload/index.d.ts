@@ -5,7 +5,7 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
-      getDashboardData: (year?: number | string) => Promise<DashboardData>,
+      getDashboardData: (args?: number | string | { year?: number | string; limit?: number; offset?: number }) => Promise<{ transacciones: DashboardData['transacciones']; hasMore: boolean }>,
       getPracticos: () => Promise<Practico[]>,
       getInactivePracticos: () => Promise<Practico[]>,
       createTransaction: (data: any) => Promise<{ success: boolean; id: string; numero_orden: number }>,

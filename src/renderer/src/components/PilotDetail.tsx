@@ -151,7 +151,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
 
                 {/* Main Content Area */}
                 <div className="flex-1 overflow-y-auto px-8 pb-8 w-full custom-scrollbar z-10 transition-colors duration-300">
-                    <div className="flex flex-col items-center gap-6 max-w-4xl mx-auto w-full pt-4">
+                    <div className="flex flex-col items-center gap-6 max-w-4xl mx-auto w-full pt-8">
 
                         {/* WhatsApp Card */}
                         <div ref={cardRef} className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl w-full max-w-lg relative overflow-hidden transition-all duration-300">
@@ -209,7 +209,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                                 </div>
                             </div>
 
-                            <div className="mt-8 pt-4 border-t border-slate-50 dark:border-slate-700 flex justify-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+                            <div className="mt-8 pt-4 border-t border-slate-50 dark:border-slate-700 flex justify-center">
                                 <img src={logo} alt="Logo" className="h-10 w-auto" />
                             </div>
                         </div>

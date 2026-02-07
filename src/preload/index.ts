@@ -5,7 +5,7 @@ import { ipcRenderer } from 'electron'
 
 // Custom APIs for renderer
 const api = {
-  getDashboardData: (year?: number | string) => ipcRenderer.invoke('get-dashboard-data', year),
+  getDashboardData: (args?: number | string | { year?: number | string; limit?: number; offset?: number }) => ipcRenderer.invoke('get-dashboard-data', args),
   getPracticos: () => ipcRenderer.invoke('get-practicos'),
   getInactivePracticos: () => ipcRenderer.invoke('get-inactive-practicos'),
   createTransaction: (data: any) => ipcRenderer.invoke('create-transaction', data),
