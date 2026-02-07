@@ -14,20 +14,20 @@ export default function Layout() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden relative">
+        <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
             {/* Header: Logo & Title */}
-            <div className="absolute top-0 left-0 w-full h-32 z-40 flex items-center justify-between px-8 pointer-events-none">
+            <div className="absolute top-0 left-0 w-full h-28 z-40 flex items-center justify-between px-6 pointer-events-none">
                 {/* Logo (Left) */}
                 <button
                     onClick={() => setSelectedPilotId(null)}
-                    className="pointer-events-auto transition-transform hover:scale-105 active:scale-95"
+                    className="pointer-events-auto transition-transform hover:scale-105 active:scale-95 opacity-80 hover:opacity-100"
                 >
-                    <img src={logo} alt="Logo" className="h-24 w-auto drop-shadow-md" />
+                    <img src={logo} alt="Logo" className="h-16 w-auto drop-shadow-sm filter grayscale hover:grayscale-0 transition-all duration-500" />
                 </button>
 
                 {/* Title (Center) */}
                 <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full flex justify-center pointer-events-none">
-                    <h1 className="font-oswald font-black text-4xl text-slate-800 tracking-tighter uppercase drop-shadow-sm select-none">
+                    <h1 className="font-sans font-black text-2xl text-slate-900/10 uppercase tracking-[0.2em] select-none">
                         Control de Cambios
                     </h1>
                 </div>

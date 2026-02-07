@@ -20,7 +20,9 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const fetchPracticos = () => {
-        window.api.getPracticos().then(setPracticos);
+        window.api.getPracticos().then(data => {
+            setPracticos(data.sort((a, b) => a.id - b.id));
+        });
     };
 
     const fetchInactivePracticos = () => {
@@ -64,6 +66,14 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
         }
     };
 
+    // Add Wheel Support for Horizontal Scroll
+    const handleWheel = (e: React.WheelEvent) => {
+        if (scrollRef.current) {
+            e.preventDefault();
+            scrollRef.current.scrollLeft += e.deltaY;
+        }
+    };
+
     const formatPilotName = (name: string) => {
         const parts = name.trim().split(/\s+/);
         if (parts.length <= 1) return name;
@@ -73,37 +83,41 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
     };
 
     return (
-        <div className="flex justify-center w-full pointer-events-none">
+        <div className="flex justify-center w-full pointer-events-none mb-4">
             {/* The Capsule */}
-            <div className="bg-slate-100 rounded-b-[35px] px-8 pb-3 pt-2 pointer-events-auto flex flex-col items-center gap-1 w-auto max-w-[calc(100vw-28rem)] transition-all duration-300">
+            <div className="bg-white/95 backdrop-blur-sm rounded-b-2xl px-6 pb-3 pt-2 pointer-events-auto flex flex-col items-center gap-1 w-auto max-w-[calc(100vw-28rem)] transition-all duration-300 shadow-sm border-b border-x border-slate-200 border-t-0">
                 {/* Carousel Container */}
                 <div className="relative w-full flex items-center justify-center px-2 sm:px-8">
                     {/* Scroll Buttons */}
-                    <button onClick={() => scroll('left')} className="absolute left-0 z-10 p-1 text-slate-400 hover:text-slate-600 transition-colors hidden sm:block">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+                    <button onClick={() => scroll('left')} className="absolute left-0 z-10 p-2 text-slate-300 hover:text-slate-600 transition-colors hidden sm:block bg-white/50 rounded-full">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
 
-                    <div ref={scrollRef} className="flex gap-6 overflow-x-auto pb-4 pt-4 px-6 items-center scroll-smooth justify-start mx-auto max-w-full">
+                    <div
+                        ref={scrollRef}
+                        onWheel={handleWheel}
+                        className="flex gap-5 overflow-x-auto pb-3 pt-2 px-4 items-center scroll-smooth justify-start mx-auto max-w-full no-scrollbar"
+                    >
                         {practicos.map(p => (
                             <button
                                 key={p.id}
                                 onClick={() => onPilotClick(p.id)}
-                                className="group flex flex-col items-center gap-2 min-w-[85px] transition-transform hover:scale-105"
+                                className="group flex flex-col items-center gap-2 min-w-[75px] transition-transform hover:scale-105"
                             >
                                 <div className={clsx(
                                     "p-0.5 rounded-full transition-all duration-300 relative",
                                     currentPilotId === p.id
-                                        ? "bg-red-800 scale-110 ring-2 ring-white"
-                                        : "bg-transparent group-hover:bg-slate-200/50"
+                                        ? "bg-slate-900 scale-105 ring-2 ring-slate-100 shadow-md"
+                                        : "bg-transparent group-hover:bg-slate-100"
                                 )}>
-                                    <PilotAvatar pilot={p} size="lg" />
+                                    <PilotAvatar pilot={p} size="md" />
                                     {currentPilotId === p.id && (
-                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-800 rounded-full shadow-sm" />
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-slate-900 rounded-full" />
                                     )}
                                 </div>
                                 <span className={clsx(
-                                    "text-[10px] font-black uppercase truncate max-w-full tracking-wider transition-colors",
-                                    currentPilotId === p.id ? "text-slate-800" : "text-slate-400 group-hover:text-slate-600"
+                                    "text-[9px] font-bold uppercase truncate max-w-full tracking-widest transition-colors",
+                                    currentPilotId === p.id ? "text-slate-900" : "text-slate-400 group-hover:text-slate-600"
                                 )}>
                                     {formatPilotName(p.nombre)}
                                 </span>
@@ -113,28 +127,28 @@ export default function TopNavigationBar({ onPilotClick, currentPilotId, refresh
                         {/* Add Pilot Button (Inline) */}
                         <button
                             onClick={() => setShowModal(true)}
-                            className="group flex flex-col items-center gap-2 min-w-[70px] hover:scale-105 transition-transform"
+                            className="group flex flex-col items-center gap-2 min-w-[60px] hover:scale-105 transition-transform"
                         >
-                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 group-hover:border-blue-400 group-hover:text-blue-500 transition-all bg-transparent">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                            <div className="w-12 h-12 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 group-hover:border-slate-800 group-hover:text-slate-800 transition-all bg-slate-50/50">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 group-hover:text-blue-500 uppercase tracking-widest">Nuevo</span>
+                            <span className="text-[9px] font-bold text-slate-400 group-hover:text-slate-800 uppercase tracking-widest">Nuevo</span>
                         </button>
 
                         {/* Retired Pilots Button (Inline) */}
                         <button
                             onClick={() => setShowRetiredModal(true)}
-                            className="group flex flex-col items-center gap-2 min-w-[70px] hover:scale-105 transition-transform"
+                            className="group flex flex-col items-center gap-2 min-w-[60px] hover:scale-105 transition-transform"
                         >
-                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 group-hover:border-slate-500 group-hover:text-slate-600 transition-all bg-transparent">
+                            <div className="w-12 h-12 rounded-full border border-dashed border-slate-300 flex items-center justify-center text-slate-400 group-hover:border-slate-800 group-hover:text-slate-800 transition-all bg-slate-50/50">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-600 uppercase tracking-widest">Retor</span>
+                            <span className="text-[9px] font-bold text-slate-400 group-hover:text-slate-800 uppercase tracking-widest">Retor</span>
                         </button>
                     </div>
 
-                    <button onClick={() => scroll('right')} className="absolute right-0 z-10 p-1 text-slate-400 hover:text-slate-600 transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+                    <button onClick={() => scroll('right')} className="absolute right-0 z-10 p-2 text-slate-300 hover:text-slate-600 transition-colors bg-white/50 rounded-full">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                 </div>
             </div>

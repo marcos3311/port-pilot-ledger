@@ -43,12 +43,14 @@ export default function PilotAvatar({ pilot, size = 'md', className, showStatus 
         xl: 'w-24 h-24 text-2xl'
     };
 
+    const isActive = pilot.activo === 1;
+
     return (
         <div className={clsx("relative inline-block", className)}>
             <div className={clsx(
-                "rounded-full flex items-center justify-center font-black font-oswald overflow-hidden border-2 border-white shadow-sm transition-all",
+                "rounded-full flex items-center justify-center font-bold overflow-hidden border border-slate-200 shadow-sm transition-all",
                 sizeClasses[size],
-                !pilot.foto_url || imgError ? "bg-slate-200 text-slate-500" : "bg-white"
+                !pilot.foto_url || imgError ? "bg-white text-slate-800 border-2 border-slate-100" : "bg-slate-50"
             )}>
                 {pilot.foto_url && !imgError ? (
                     <img
@@ -58,13 +60,13 @@ export default function PilotAvatar({ pilot, size = 'md', className, showStatus 
                         onError={() => setImgError(true)}
                     />
                 ) : (
-                    <span>{getInitials(pilot.nombre)}</span>
+                    <span className="tracking-widest">{getInitials(pilot.nombre)}</span>
                 )}
             </div>
             {showStatus && (
                 <span className={clsx(
-                    "absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-white",
-                    pilot.activo === 1 ? "bg-emerald-500" : "bg-slate-400"
+                    "absolute bottom-0 right-0 block w-3.5 h-3.5 rounded-full ring-2 ring-white border border-white shadow-sm",
+                    isActive ? "bg-emerald-500" : "bg-rose-500"
                 )} />
             )}
         </div>
