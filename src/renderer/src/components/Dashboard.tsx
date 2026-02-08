@@ -4,6 +4,7 @@ import { Practico } from '../../../shared/types';
 import clsx from 'clsx';
 import TransactionFormModal from './TransactionFormModal';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import ConfirmModal from './ConfirmModal';
 
 interface DashboardProps {
     onNavigatePilot: (id: number) => void;
@@ -114,18 +115,23 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
         fetchTransactions(true);
     };
 
-    const toggleVoid = async (id: string, currentStatus: string) => {
-        const isVoid = currentStatus === 'sin_efecto';
-        const confirmMsg = isVoid
-            ? '¿Restaurar esta transacción? (Volverá a sumar en los saldos)'
-            : '¿Marcar como Sin Efecto? (No sumará en los saldos, pero se mantiene en el historial)';
+    const [voidConfirmState, setVoidConfirmState] = useState<{ isOpen: boolean; id: string | null; currentStatus: string }>({ isOpen: false, id: null, currentStatus: '' });
 
-        if (!confirm(confirmMsg)) return;
+    const toggleVoid = (id: string, currentStatus: string) => {
+        setVoidConfirmState({ isOpen: true, id, currentStatus });
+    };
+
+    const handleConfirmVoid = async () => {
+        const { id, currentStatus } = voidConfirmState;
+        if (!id) return;
+
+        const isVoid = currentStatus === 'sin_efecto';
 
         try {
             await window.api.setTransactionVoid(id, !isVoid);
             // Optimistic update or refresh
             setTransactions(prev => prev.map(t => t.id === id ? { ...t, estado: isVoid ? 'activo' : 'sin_efecto' } : t));
+            setVoidConfirmState({ isOpen: false, id: null, currentStatus: '' });
         } catch (e: any) {
             alert(e.message);
         }
@@ -440,6 +446,18 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
                 }}
                 initialData={selectedTx}
                 practicos={practicos}
+            />
+
+            <ConfirmModal
+                isOpen={voidConfirmState.isOpen}
+                onClose={() => setVoidConfirmState({ ...voidConfirmState, isOpen: false })}
+                onConfirm={handleConfirmVoid}
+                title={voidConfirmState.currentStatus === 'sin_efecto' ? "Restaurar Transacción" : "Marcar Sin Efecto"}
+                message={voidConfirmState.currentStatus === 'sin_efecto'
+                    ? "¿Está seguro de restaurar esta transacción? Volverá a sumar en los saldos."
+                    : "¿Está seguro de marcar como Sin Efecto? No sumará en los saldos, pero se mantiene en el historial."}
+                confirmText={voidConfirmState.currentStatus === 'sin_efecto' ? "Restaurar" : "Sin Efecto"}
+                type={voidConfirmState.currentStatus === 'sin_efecto' ? "default" : "warning"}
             />
 
             {/* Modal: Smart Delete (Only for standard transactions) */}
