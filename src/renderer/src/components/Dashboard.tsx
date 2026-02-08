@@ -100,7 +100,7 @@ export default function Dashboard({ onNavigatePilot, refreshKey }: DashboardProp
 
     const confirmDeleteSimple = async () => {
         if (!deletingId) return;
-        await window.api.deleteTransactionSimple(deletingId);
+        await window.api.deleteTransactionSimple(deletingId, 'intercambio');
         setShowDeleteModal(false);
         setDeletingId(null);
         fetchTransactions(true);

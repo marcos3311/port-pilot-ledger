@@ -4,6 +4,7 @@ import TopNavigationBar from './TopNavigationBar';
 import PilotDetail from './PilotDetail';
 
 import logo from '../assets/logo.png';
+import logoDark from '../assets/logo-dark.png';
 
 export default function Layout() {
     const [selectedPilotId, setSelectedPilotId] = useState<number | null>(null);
@@ -42,7 +43,7 @@ export default function Layout() {
                     onClick={() => setSelectedPilotId(null)}
                     className="pointer-events-auto transition-transform active:scale-97"
                 >
-                    <img src={logo} alt="Logo" className="h-16 w-auto drop-shadow-sm filter" />
+                    <img src={theme === 'dark' ? logoDark : logo} alt="Logo" className="h-16 w-auto drop-shadow-sm filter" />
                 </button>
 
                 {/* Title (Center) */}

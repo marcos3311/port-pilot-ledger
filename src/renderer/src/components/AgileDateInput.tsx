@@ -2,10 +2,10 @@ import { useRef } from 'react';
 import clsx from 'clsx';
 
 interface AgileDateInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-
+    error?: boolean;
 }
 
-export default function AgileDateInput({ className, ...props }: AgileDateInputProps) {
+export default function AgileDateInput({ className, error, ...props }: AgileDateInputProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleIconClick = () => {
@@ -16,6 +16,8 @@ export default function AgileDateInput({ className, ...props }: AgileDateInputPr
         }
     };
 
+    const hasError = error;
+
     return (
         <div className="relative w-full">
             <input
@@ -24,7 +26,10 @@ export default function AgileDateInput({ className, ...props }: AgileDateInputPr
                 className={clsx(
                     "w-full appearance-none [&::-webkit-calendar-picker-indicator]:hidden",
                     "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm",
-                    "focus:ring-2 focus:ring-slate-100 dark:focus:ring-slate-800 focus:border-slate-400 dark:focus:border-slate-500 outline-none transition-all duration-300",
+                    hasError
+                        ? "border-rose-500 ring-rose-500/20 focus:border-rose-500 focus:ring-rose-500/20"
+                        : "focus:ring-2 focus:ring-slate-100 dark:focus:ring-slate-800 focus:border-slate-400 dark:focus:border-slate-500",
+                    "outline-none transition-all duration-300",
                     className
                 )}
                 {...props}

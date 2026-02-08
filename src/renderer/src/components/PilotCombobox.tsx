@@ -10,9 +10,11 @@ interface PilotComboboxProps {
     practicos: Practico[];
     theme?: 'slate' | 'emerald' | 'rose' | 'purple' | 'amber' | 'blue';
     className?: string;
+    error?: boolean;
+    id?: string;
 }
 
-export default function PilotCombobox({ label, value, onChange, practicos, theme = 'slate', className }: PilotComboboxProps) {
+export default function PilotCombobox({ label, value, onChange, practicos, theme = 'slate', className, error, id }: PilotComboboxProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [activeIndex, setActiveIndex] = useState(-1); // For keyboard navigation
@@ -150,7 +152,10 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
 
     return (
         <div ref={wrapperRef} className={clsx("relative", className)} onBlur={handleBlur}>
-            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5 tracking-wider truncate transition-colors duration-300">{label}</label>
+            <label className={clsx(
+                "block text-[10px] font-bold uppercase mb-1.5 tracking-wider truncate transition-colors duration-300",
+                error ? "text-rose-500 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"
+            )}>{label}</label>
 
             <div className="relative group">
                 <div className="relative">
@@ -163,6 +168,7 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
 
                     <input
                         ref={inputRef}
+                        id={id}
                         type="text"
                         value={query}
                         onChange={(e) => {
@@ -182,7 +188,9 @@ export default function PilotCombobox({ label, value, onChange, practicos, theme
                         className={clsx(
                             "w-full rounded bg-white dark:bg-slate-900 p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none shadow-sm transition-all focus:ring-2 duration-300",
                             "placeholder:text-slate-300 dark:placeholder:text-slate-600 placeholder:font-normal",
-                            themeStyles[theme],
+                            error
+                                ? "border-rose-500 ring-rose-500/20 focus:border-rose-500 focus:ring-rose-500/20 border"
+                                : themeStyles[theme],
                             selectedPilot ? "pl-11" : "pl-3" // Adjust padding
                         )}
                         placeholder="BUSCAR..."

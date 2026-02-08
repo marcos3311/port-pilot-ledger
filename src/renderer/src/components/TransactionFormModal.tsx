@@ -174,15 +174,39 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
         });
     };
 
+    // Validation State
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setErrors({}); // Reset errors
+
         try {
+            const newErrors: Record<string, boolean> = {};
+            let firstErrorId = '';
+
+            // --- COMMON VALIDATION ---
+            if (!pilotA) {
+                newErrors['input-pilot-a'] = true;
+                if (!firstErrorId) firstErrorId = 'input-pilot-a';
+            }
+            if (!pilotB) {
+                newErrors['input-pilot-b'] = true;
+                if (!firstErrorId) firstErrorId = 'input-pilot-b';
+            }
+
             // --- CONDONATION SPECIFIC HANDLER ---
             if (mode === 'condonacion') {
                 const range = ranges[0];
-                // Basic Validation for Condonacion
-                if (!pilotA || !pilotB) {
-                    alert('Seleccione ambos prácticos (Perdonador y Perdonado).');
+                if (!range.start) {
+                    newErrors['input-range-0-start'] = true;
+                    if (!firstErrorId) firstErrorId = 'input-range-0-start';
+                }
+
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
+                    const el = document.getElementById(firstErrorId);
+                    el?.focus();
                     return;
                 }
 
@@ -192,7 +216,7 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                     anio_imputacion: anioImputacion,
                     acreedor_id: parseInt(pilotA), // Perdonador
                     deudor_id: parseInt(pilotB),   // Perdonado
-                    fecha_turno: new Date().toISOString().split('T')[0], // Use today
+                    fecha_turno: range.start, // Use selected date
                     customOrderNumber: undefined, // No order number
                     datos: {
                         dias: range.days
@@ -211,6 +235,34 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
             }
 
             // --- STANDARD HANDLER (Unilateral / Reciproco) ---
+
+            // Validate Ranges (IDA)
+            ranges.forEach((r, i) => {
+                if (!r.start) {
+                    const id = `input-range-${i}-start`;
+                    newErrors[id] = true;
+                    if (!firstErrorId) firstErrorId = id;
+                }
+            });
+
+            if (mode === 'reciproco') {
+                // Validate Vuelta Ranges
+                vueltaRanges.forEach((r, i) => {
+                    if (!r.start) {
+                        const id = `input-vuelta-${i}-start`;
+                        newErrors[id] = true;
+                        if (!firstErrorId) firstErrorId = id;
+                    }
+                });
+            }
+
+            if (Object.keys(newErrors).length > 0) {
+                setErrors(newErrors);
+                const el = document.getElementById(firstErrorId);
+                el?.focus();
+                return;
+            }
+
             const totalDays = calculateTotalDays(ranges);
             const backendRanges = convertAgileToBackendRanges(ranges);
 
@@ -281,7 +333,7 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
         : mode === 'reciproco' ? 'Práctico B (Cubre)'
             : 'Es Perdonado (Deudor)';
 
-    const renderDateInputs = (rs: AgileRange[], setter: React.Dispatch<React.SetStateAction<AgileRange[]>>, label: string) => (
+    const renderDateInputs = (rs: AgileRange[], setter: React.Dispatch<React.SetStateAction<AgileRange[]>>, label: string, idPrefix: string = 'range') => (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm transition-colors duration-300">
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-2 transition-colors duration-300">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100 transition-colors duration-300">{label}</label>
@@ -294,10 +346,12 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                         <div className="flex-1">
                             <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 transition-colors duration-300">Fecha Inicio</label>
                             <AgileDateInput
+                                id={`input-${idPrefix}-${i}-start`}
                                 value={r.start}
                                 onChange={(e) => updateRange(setter, i, 'start', e.target.value)}
                                 autoFocus={!!r.autoFocus}
                                 required
+                                error={(errors as any)?.[`input-${idPrefix}-${i}-start`]}
                             />
                         </div>
                         <div className="w-20">
@@ -382,18 +436,22 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                         {/* 3. PILOTS */}
                         <div className="grid grid-cols-2 gap-4">
                             <PilotCombobox
+                                id="input-pilot-a"
                                 label={labelPilotA}
                                 value={pilotA}
                                 onChange={(val) => setPilotA(val)}
                                 practicos={practicos}
                                 theme={mode === 'unilateral' ? 'emerald' : mode === 'reciproco' ? 'purple' : 'amber'}
+                                error={errors['input-pilot-a']}
                             />
                             <PilotCombobox
+                                id="input-pilot-b"
                                 label={labelPilotB}
                                 value={pilotB}
                                 onChange={(val) => setPilotB(val)}
                                 practicos={practicos}
                                 theme={mode === 'unilateral' ? 'rose' : mode === 'reciproco' ? 'purple' : 'slate'}
+                                error={errors['input-pilot-b']}
                             />
                         </div>
                     </div>
@@ -497,7 +555,7 @@ export default function TransactionFormModal({ isOpen, onClose, onSuccess, initi
                             </div>
 
                             {/* Vuelta Logic (New Dates - RANGES) */}
-                            {renderDateInputs(vueltaRanges, setVueltaRanges, 'Período de la Vuelta')}
+                            {renderDateInputs(vueltaRanges, setVueltaRanges, 'Período de la Vuelta', 'vuelta')}
 
                             <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 border-l-4 border-l-emerald-500 dark:border-l-emerald-500 transition-colors duration-300">
                                 <div className="flex flex-col gap-4">

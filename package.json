@@ -1,8 +1,8 @@
 {
   "name": "port-pilot-ledger",
   "productName": "Control de Cambios",
-  "version": "2.0.0",
-  "description": "Sistema de Gestión de Cambios Entre Prácticos",
+  "version": "2.1.0",
+  "description": "Control de Cambios entre Prácticos",
   "main": "./out/main/index.js",
   "author": "Marcos",
   "homepage": "https://electron-vite.org",

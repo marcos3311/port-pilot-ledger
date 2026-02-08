@@ -4,9 +4,11 @@ import { PilotSummary, DatosUnilateral, DatosReciproco } from '../../../shared/t
 import { toPng } from 'html-to-image';
 
 import logo from '../assets/logo.png';
+import logoDark from '../assets/logo-dark.png';
 import PilotAvatar from './PilotAvatar';
 import clsx from 'clsx';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import Toast, { ToastType } from './Toast';
 
 interface PilotDetailProps {
     pilotId: number;
@@ -30,6 +32,21 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
         foto_url: null,
         activo: 1
     });
+
+    // Toast State
+    const [toast, setToast] = useState<{ message: string; type: ToastType; show: boolean }>({
+        message: '',
+        type: 'success',
+        show: false
+    });
+
+    const showToast = (message: string, type: ToastType = 'success') => {
+        setToast({ message, type, show: true });
+    };
+
+    const handleCloseToast = () => {
+        setToast(prev => ({ ...prev, show: false }));
+    };
 
     const handlePhotoSelect = async () => {
         try {
@@ -56,7 +73,7 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                 onStatusChange();
             }
         } catch (err: any) {
-            alert('Error al actualizar: ' + err.message);
+            showToast('Error al actualizar: ' + err.message, 'error');
         }
     };
 
@@ -82,10 +99,10 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
             });
 
             await window.api.copyImageToClipboard(dataUrl);
-            alert('¡Resumen copiado al portapapeles como imagen!');
+            showToast('¡Resumen copiado al portapapeles!', 'success');
         } catch (err) {
             console.error('Error copying image:', err);
-            alert('Error al copiar la imagen.');
+            showToast('Error al copiar la imagen.', 'error');
         }
     };
 
@@ -215,7 +232,8 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                             </div>
 
                             <div className="mt-8 pt-4 border-t border-slate-50 dark:border-slate-700 flex justify-center">
-                                <img src={logo} alt="Logo" className="h-10 w-auto" />
+                                <img src={logo} alt="Logo" className="h-16 w-auto block dark:hidden" />
+                                <img src={logoDark} alt="Logo" className="h-16 w-auto hidden dark:block" />
                             </div>
                         </div>
 
@@ -497,6 +515,13 @@ export default function PilotDetail({ pilotId, year, onBack, onStatusChange }: P
                     </div>,
                     document.body
                 )}
+
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    show={toast.show}
+                    onClose={handleCloseToast}
+                />
             </div>
         </div>
     );
